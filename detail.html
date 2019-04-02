@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<link rel="stylesheet" type="text/css" href="layui/css/layui.css" media="all" />
+		<meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no" />
+		<title></title>
+		<style type="text/css">
+			.body {
+				overflow-y: scroll;
+			}
+
+			.layui-table-cell {
+				height: 40px;
+			}
+		</style>
+		<script src="configuration.js" type="text/javascript" charset="utf-8"></script>
+	</head>
+	<body>
+
+		<ul class="layui-nav">
+			<li class="layui-nav-item"><a href="index.html">App BUG</a></li>
+		</ul>
+		<div class="layui-tab layui-tab-brief" lay-filter="tab">
+			<ul class="layui-tab-title">
+				<li class="layui-this">屏幕截图</li>
+				<li>操作步骤</li>
+				<li>设备信息</li>
+				<li>用户日志</li>
+				<li>请求日志</li>
+			</ul>
+			<div class="layui-tab-content" style="height: 100%">
+				<div class="layui-tab-item layui-show" id="image-content">
+					<img width="750px" v-bind:src="screenImage">
+				</div>
+				<div class="layui-tab-item">
+					<table class="layui-table" lay-size="lg" id="operating-setp">
+					</table>
+				</div>
+				<div class="layui-tab-item">
+					<table class="layui-table" lay-size="lg" id="device-info">
+					</table>
+				</div>
+				<div class="layui-tab-item">
+					<table class="layui-table" lay-size="lg" id="log_table">
+					</table>
+				</div>
+				<div class="layui-tab-item">
+					<table class="layui-table" lay-size="lg" id="network-table" lay-filter="network_filter">
+					</table>
+				</div>
+			</div>
+		</div>
+		<script src="layui/layui.js" charset="utf-8"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vue"></script>
+		<script type="text/javascript">
+			var imageApp = new Vue({
+				el: '#image-content',
+				data: {
+					screenImage: ""
+				}
+			});
+
+			var networkApp = new Vue({
+				el: '#network-table',
+				data: {
+					networks: [
+
+					]
+				},
+				methods: {
+					check_header: function(index) {
+						var headers = networkApp.$data.networks[index].allHTTPHeaderFields
+						layui.use('layer', function() {
+							var layer = layui.layer
+							layui.sessionData('header', {
+								key: 'network_header',
+								value: headers
+							});
+							//页面层
+							layer.open({
+								type: 2,
+								title: 'iframe父子操作',
+								maxmin: true,
+								shadeClose: true, //点击遮罩关闭层
+								area: ['750px', '500px'],
+								content: 'layer_header.html'
+							});
+						});
+					}
+				}
+			})
+
+			function timeToString(time) {
+				var unixTimestamp = new Date(time * 1000);
+				return unixTimestamp.toLocaleString();
+			}
+		</script>
+		<script type="text/html" id="screen">
+			{{#
+				var imageURL = SERVER_URL + "/" + d.loggerInfo.screenImagePath
+			}}
+			<div id="screenImage" class="screenImage">
+				<img src="{{imageURL}}" width="300px" layer-src="{{imageURL}}" layer-pid layer-index="0">
+			</div>
+		</script>
+		<script type="text/html" id="note">
+			<div class="layui-col-md12">
+			<div class="layui-card note">
+				{{d.loggerInfo.note}}
+			</div>
+			</div>
+		</script>
+		<script type="text/html" id="action">
+			<button type="button" class="layui-btn" lay-event="check">查看 Header</button>
+		</script>
+
+		<script type="text/html" id="isResponse">
+			<input type="checkbox" name="isResponse" value="{{d.isResponse}}" lay-skin="switch" lay-text="是|否" lay-filter="sexDemo" {{ d.isResponse == true ? 'checked' : '' }} disabled>
+		</script>
+
+		<script>
+			layui.use(['element', 'layer', 'table'], function() {
+				var element = layui.element;
+				var layer = layui.layer;
+				var table = layui.table;
+				var form = layui.form;
+				var $ = layui.$;
+
+
+				function getQueryVariable(variable) {
+					var query = window.location.search.substring(1);
+					var vars = query.split("&");
+					for (var i = 0; i < vars.length; i++) {
+						var pair = vars[i].split("=");
+						if (pair[0] == variable) {
+							return pair[1];
+						}
+					}
+					return (false);
+				};
+				var id = getQueryVariable("id");
+				$.ajax({
+						url: SERVER_URL+"/loggerInfo",
+						type: "GET",
+						data: {
+							"id": id,
+						},
+					})
+					.done(function(data, textStatus, jqXHR) {
+						console.log("HTTP Request Succeeded: " + jqXHR.status);
+						console.log(data);
+						imageApp.$data.screenImage = SERVER_URL + "/" + data.data.loggerInfo.screenImagePath;
+						var deviceInfo = data.data.loggerInfo.detail.deviceInfo;
+						var logs = data.data.loggerInfo.detail.logArray;
+						var logData = []
+						logs.forEach(function(item) {
+							var timeString = timeToString(item.time);
+							logData.push({
+								"time": timeString,
+								"log": item.log
+							})
+						});
+						loadLoggerTable(logData);
+						var networks = data.data.loggerInfo.detail.networkArray;
+						var networkData = []
+						var id = 0
+						networks.forEach(function(item) {
+							var timeString = timeToString(item.time);
+							var isResponse = item.isResponse == 1 ? true : false;
+
+							networkData.push({
+								"URL": item.URL,
+								"HTTPMethod": item.HTTPMethod,
+								"time": timeString,
+								"isResponse": isResponse,
+								"responseStatusCode": item.responseStatusCode,
+								"elapsedTime": item.elapsedTime,
+								"id": id,
+								"allHTTPHeaderFields": item.allHTTPHeaderFields,
+								"responseObject": item.responseObject,
+
+							});
+							id++;
+						});
+						loadNetworkTable(networkData);
+						var devicesData = [{
+								"name": "SDK版本",
+								"value": deviceInfo.SDKVersion
+							},
+							{
+								"name": "设备版本",
+								"value": deviceInfo.deviceVersion
+							},
+							{
+								"name": "设备电量",
+								"value": deviceInfo.betty
+							},
+							{
+								"name": "App 版本号",
+								"value": deviceInfo.appVersion
+							},
+							{
+								"name": "CPU 缓存",
+								"value": deviceInfo.CPUL2CacheSize
+							},
+							{
+								"name": "CPU 个数",
+								"value": deviceInfo.CPUCoreNumber
+							},
+							{
+								"name": "CPU 大小",
+								"value": deviceInfo.CPUFrequency
+							},
+							{
+								"name": "设备名称",
+								"value": deviceInfo.deviceName
+							},
+							{
+								"name": "内存大小",
+								"value": deviceInfo.availableMemory
+							},
+							{
+								"name": "屏幕大小",
+								"value": deviceInfo.screenSize
+							},
+							{
+								"name": "设备唯一标识符",
+								"value": deviceInfo.UUIDString
+							}
+						];
+						loadDeveiceTable(devicesData);
+						var operatingSetpArray = data.data.loggerInfo.detail.operatingSetpArray
+						var operatingSetpData = []
+						operatingSetpArray.forEach(function(item) {
+							var time = timeToString(item.time);
+							operatingSetpData.push({
+								"time": time,
+								"operatingStep": item.operatingStep
+							});
+						});
+						loadOperatingSetpTable(operatingSetpData);
+					})
+					.fail(function(jqXHR, textStatus, errorThrown) {
+						console.log("HTTP Request Failed");
+					})
+					.always(function() {
+						/* ... */
+					});
+
+				function loadDeveiceTable(data) {
+					table.render({
+						elem: '#device-info',
+						title: '设备信息',
+						page: true,
+						data: data,
+						cols: [
+							[ //表头
+								{
+									field: 'name',
+									title: '信息名称',
+									width: 150,
+								}, {
+									field: "value",
+									title: '信息值',
+								}
+							]
+						],
+					});
+				}
+
+				function loadOperatingSetpTable(data) {
+					console.log(data);
+					table.render({
+						elem: '#operating-setp',
+						title: '操作步骤',
+						page: true,
+						data: data,
+						cols: [
+							[ //表头
+								{
+									field: 'time',
+									title: '时间',
+									width: 200,
+								}, {
+									field: "operatingStep",
+									title: '跳转步骤',
+								}
+							]
+						],
+					});
+				}
+
+				function loadLoggerTable(data) {
+					table.render({
+						elem: "#log_table",
+						title: "用户日志",
+						page: true,
+						data: data,
+						cols: [
+							[{
+									field: 'time',
+									title: '时间',
+									width: 200,
+								},
+								{
+									field: 'log',
+									title: '日志',
+								},
+							]
+						]
+					});
+				}
+
+				function loadNetworkTable(data) {
+					table.render({
+						elem: "#network-table",
+						title: "用户请求",
+						page: true,
+						data: data,
+						cols: [
+							[{
+									field: 'time',
+									title: '时间',
+									width: 200,
+								},
+								{
+									field: 'URL',
+									title: '请求地址',
+								},
+								{
+									field: 'HTTPMethod',
+									title: '请求方法',
+									width: 90
+								},
+								{
+									field: 'responseStatusCode',
+									title: '状态吗',
+									width: 80
+								},
+								{
+									field: 'elapsedTime',
+									title: '响应时间',
+									width: 180
+								},
+								{
+									field: 'responseObject',
+									title: '响应数据',
+									width: 300
+								},
+								{
+									title: '查看 Header信息',
+									width: 150,
+									align: 'center',
+									toolbar: '#action'
+								},
+							]
+						]
+					});
+				}
+				table.on('tool(network_filter)', function(obj) {
+					if (obj.event == "check")
+						var headers = obj.data.allHTTPHeaderFields
+					console.log(headers);
+					layui.use('layer', function() {
+						var layer = layui.layer
+						layui.sessionData('header', {
+							key: 'network_header',
+							value: headers
+						});
+						//页面层
+						layer.open({
+							type: 2,
+							title: 'Header',
+							maxmin: true,
+							shadeClose: true, //点击遮罩关闭层
+							area: ['750px', '500px'],
+							content: 'layer_header.html'
+						});
+					});
+
+				});
+			});
+		</script>
+
+	</body>
+</html>

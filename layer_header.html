@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title></title>
+		<script src="layui/layui.js" charset="utf-8"></script>
+		<link rel="stylesheet" type="text/css" href="layui/css/layui.css" />
+		<script src="https://cdn.jsdelivr.net/npm/vue"></script>
+	</head>
+	<body width="200px" height="500px">
+		<table class="layui-table" id="header_table">
+			<colgroup>
+				<col width="5">
+				<col width="20%">
+			</colgroup>
+			<thead>
+				<tr>
+					<th>Header 名称</th>
+					<th> Header 值</th>
+				</tr>
+			</thead>
+			<tbody v-for="(value,key) in headers">
+				<tr>
+					<th>{{key}}</th>
+					<th style="word-wrap: normal;">{{value}}</th>
+				</tr>
+			</tbody>
+		</table>
+	</body>
+	<script src="https://cdn.jsdelivr.net/npm/vue"></script>
+	<script type="text/javascript">
+		var headerApp = new Vue({
+			el: '#header_table',
+			data: {
+				headers: {
+					
+				}
+			}
+		});
+		var header_data = layui.sessionData('header').network_header;
+		console.log(header_data);
+		headerApp.$data.headers = layui.sessionData('header').network_header;
+	</script>
+</html>

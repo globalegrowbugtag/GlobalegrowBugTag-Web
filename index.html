@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<link rel="stylesheet" type="text/css" href="layui/css/layui.css" />
+		<meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no" />
+		<title></title>
+		<style type="text/css">
+			.layui-table-cell {
+				height: auto;
+				/* white-space: normal; */
+			}
+
+			.note {
+				word-wrap: break-word;
+			}
+		</style>
+	</head>
+	<body>
+		<script src="configuration.js" type="text/javascript" charset="utf-8"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vue"></script>
+		<ul class="layui-nav">
+			<li class="layui-nav-item"><a href="index.html">App BUG</a></li>
+		</ul>
+		<div class="layui-tab layui-tab-brief" lay-filter="tab">
+			<ul class="layui-tab-title">
+				<li class="layui-this">全部类型</li>
+				<li>崩溃类型</li>
+				<li>用户上报</li>
+				<li>已解决</li>
+			</ul>
+			<div class="layui-tab-content" style="height: 100px;">
+				<div class="layui-tab-item layui-show" id="image-content">
+					<table class="layui-hide" id="table" lay-filter="table-filter">
+					</table>
+				</div>
+			</div>
+		</div>
+		<script src="layui/layui.js" charset="utf-8"></script>
+		<script type="text/html" id="screen">
+			{{# 
+			var imageURL = SERVER_URL + "/"+ d.loggerInfo.screenImagePath
+			}}
+		<div id="screenImage" class="screenImage">
+			<img src="{{imageURL}}" width="300px" layer-src="{{imageURL}}" layer-pid
+			 layer-index="0">
+		</div>
+		</script>
+
+		<script type="text/html" id="note">
+			<div class="layui-col-md12">
+			<div class="layui-card note">
+				{{d.loggerInfo.note}}
+			</div>
+			</div>
+		</script>
+		<script type="text/javascript">
+
+		</script>
+		<script type="text/html" id="action">
+			<button type="button" class="layui-btn layui-btn-normal" lay-event="check">查看</button>
+							{{# if(d.solve == 0) { }}
+			 				<button type="button" class="layui-btn" lay-event="solve">解决</button>
+							{{# }else{ }}
+			 				<button type="button" class="layui-btn layui-btn-warm" lay-event="unsolve">未解决</button>
+			 				{{#  } }}
+		</script>
+
+		<script type="text/javascript">
+			layui.use(['element', 'layer', 'table'], function() {
+				var element = layui.element;
+				var layer = layui.layer;
+				var table = layui.table;
+				var form = layui.form;
+				var $ = layui.$;
+
+				function loadTable(type) {
+					//执行一个 table 实例
+					table.render({
+						elem: '#table',
+						url: SERVER_URL + '/loggerInfoList',
+						where: {
+							type: type
+						},
+						request: {
+							pageName: 'page' //页码的参数名称，默认：page
+								,
+							limitName: 'count' //每页数据量的参数名，默认：limit
+						},
+						response: {
+							statusCode: 200
+						},
+						parseData: function(res) { //res 即为原始返回的数据
+
+							var data = {
+								"code": res.state, //解析接口状态
+								"msg": res.message, //解析提示文本
+								"count": res.data.count, //解析数据长度
+								"data": res.data.list //解析数据列表
+							};
+							console.log(data);
+							return data;
+						},
+						title: '用户表',
+						page: true,
+						cols: [
+							[ //表头
+								{
+									field: 'id',
+									title: 'ID',
+									width: 80,
+									// fixed: 'left',
+								},
+								{
+									title: '屏幕截图',
+									width: 250,
+									templet: '#screen'
+								},
+								{
+									title: '平台',
+									width: 90,
+									field: 'platform',
+								},
+								{
+									title: "备注",
+									templet: '#note'
+								},
+								{
+									// fixed: 'right',
+									title: "操作",
+									width: 200,
+									align: 'center',
+									toolbar: '#action'
+
+								}
+							]
+						],
+						done: function() {
+							layer.photos({
+								photos: '#image-content',
+								anim: 5 //0-6的选择，指定弹出图片动画类型，默认随机（请注意，3.0之前的版本用shift参数）
+							});
+
+						}
+					});
+				}
+				loadTable(0);
+				//监听Tab切换
+				element.on('tab(tab)', function(data) {
+					console.log(data)
+					table.reload("table", {
+						where: {
+							type: data.index
+						},
+						page: {
+							curr: 1 //重新从第 1 页开始
+						}
+					});
+				});
+				table.on('tool(table-filter)', function(obj) {
+					console.log(obj);
+					// document.location.href = "./detail.html?id=" + obj.data.id;
+					if (obj.event == "check") {
+						document.location.href = "./detail.html?id=" + obj.data.id
+					} else if (obj.event == "solve") {
+						changeSolve(obj.data.id, "1")
+					} else if (obj.event == "unsolve") {
+						changeSolve(obj.data.id, "0")
+					}
+				});
+
+				function changeSolve(id, solve) {
+					$.ajax({
+							url: SERVER_URL + "/updateLoggerInfo",
+							type: "POST",
+							data: {
+								"id": id,
+								"solve": solve
+							},
+						})
+						.done(function(data, textStatus, jqXHR) {
+							table.reload("table", {
+
+							});
+
+						})
+						.fail(function(jqXHR, textStatus, errorThrown) {
+							console.log("HTTP Request Failed");
+						})
+						.always(function() {
+							/* ... */
+						});
+				}
+
+			});
+		</script>
+
+	</body>
+</html>
